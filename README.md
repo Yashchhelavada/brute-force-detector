@@ -143,10 +143,3 @@ python detector.py converted_auth.log --json cowrie_threats.json
 ```
 
 ---
-
-## Resume Bullet Points
-
-- Built a Python SSH log analyzer detecting brute-force attacks with MITRE ATT&CK T1110/T1078 mapping
-- Implemented velocity-based threat scoring (attempts/min) with 4-tier severity classification
-- Developed a Flask web dashboard with real-time auto-refresh for live log monitoring
-- Designed JSON export pipeline compatible with Elasticsearch/Splunk SIEM ingestion
