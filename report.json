@@ -1,5 +1,5 @@
 {
-  "scan_time": "2026-03-17T10:50:52.302846",
+  "scan_time": "2026-03-17T11:27:28.766910",
   "summary": {
     "total_lines": 30,
     "failed_logins": 19,
@@ -16,9 +16,9 @@
       "invalid_users": 0,
       "velocity_per_min": 36.0,
       "usernames_tried": [
+        "root",
         "ubuntu",
-        "admin",
-        "root"
+        "admin"
       ],
       "succeeded": true,
       "success_user": "ubuntu",
@@ -48,10 +48,10 @@
       "invalid_users": 8,
       "velocity_per_min": 68.57,
       "usernames_tried": [
-        "oracle",
-        "test",
         "guest",
-        "pi"
+        "pi",
+        "test",
+        "oracle"
       ],
       "succeeded": false,
       "success_user": null,

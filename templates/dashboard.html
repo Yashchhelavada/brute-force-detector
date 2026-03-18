@@ -1,0 +1,456 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SSH Threat Monitor</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Rajdhani:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg:        #080c10;
+    --bg2:       #0d1117;
+    --bg3:       #111820;
+    --border:    #1e2d3d;
+    --green:     #00ff88;
+    --green-dim: #00cc6a;
+    --red:       #ff3b5c;
+    --orange:    #ff9500;
+    --yellow:    #ffd60a;
+    --blue:      #00b4d8;
+    --text:      #c9d1d9;
+    --text-dim:  #4a5568;
+    --mono:      'Share Tech Mono', monospace;
+    --sans:      'Rajdhani', sans-serif;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--mono);
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* Scanline overlay */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background: repeating-linear-gradient(
+      0deg,
+      transparent,
+      transparent 2px,
+      rgba(0,255,136,0.015) 2px,
+      rgba(0,255,136,0.015) 4px
+    );
+    pointer-events: none;
+    z-index: 999;
+  }
+
+  header {
+    border-bottom: 1px solid var(--border);
+    padding: 18px 32px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: var(--bg2);
+  }
+
+  .logo {
+    font-family: var(--sans);
+    font-size: 20px;
+    font-weight: 700;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    color: var(--green);
+    text-shadow: 0 0 20px rgba(0,255,136,0.4);
+  }
+
+  .logo span { color: var(--text-dim); }
+
+  .header-right {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+    font-size: 12px;
+    color: var(--text-dim);
+  }
+
+  .live-dot {
+    width: 8px; height: 8px;
+    background: var(--green);
+    border-radius: 50%;
+    box-shadow: 0 0 8px var(--green);
+    animation: pulse 2s infinite;
+    display: inline-block;
+    margin-right: 6px;
+  }
+
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50%       { opacity: 0.3; }
+  }
+
+  .refresh-btn {
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--green);
+    font-family: var(--mono);
+    font-size: 12px;
+    padding: 6px 14px;
+    cursor: pointer;
+    transition: all 0.2s;
+    letter-spacing: 1px;
+  }
+
+  .refresh-btn:hover {
+    background: rgba(0,255,136,0.1);
+    border-color: var(--green);
+    box-shadow: 0 0 12px rgba(0,255,136,0.2);
+  }
+
+  main { padding: 28px 32px; max-width: 1400px; margin: 0 auto; }
+
+  /* ── Stat Cards ── */
+  .stats-grid {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 12px;
+    margin-bottom: 28px;
+  }
+
+  .stat-card {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    padding: 18px 20px;
+    position: relative;
+    overflow: hidden;
+    opacity: 0;
+    transform: translateY(10px);
+    animation: fadeUp 0.4s forwards;
+  }
+
+  .stat-card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 2px;
+  }
+
+  .stat-card.green::before  { background: var(--green); }
+  .stat-card.red::before    { background: var(--red); }
+  .stat-card.orange::before { background: var(--orange); }
+  .stat-card.yellow::before { background: var(--yellow); }
+  .stat-card.blue::before   { background: var(--blue); }
+
+  .stat-label {
+    font-size: 10px;
+    color: var(--text-dim);
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    margin-bottom: 10px;
+  }
+
+  .stat-value {
+    font-family: var(--sans);
+    font-size: 36px;
+    font-weight: 700;
+    line-height: 1;
+  }
+
+  .stat-card.green  .stat-value { color: var(--green); }
+  .stat-card.red    .stat-value { color: var(--red); }
+  .stat-card.orange .stat-value { color: var(--orange); }
+  .stat-card.yellow .stat-value { color: var(--yellow); }
+  .stat-card.blue   .stat-value { color: var(--blue); }
+
+  /* ── Threat Table ── */
+  .section-title {
+    font-family: var(--sans);
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    color: var(--text-dim);
+    margin-bottom: 14px;
+  }
+
+  .threat-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+    margin-bottom: 28px;
+  }
+
+  .threat-table th {
+    text-align: left;
+    padding: 10px 16px;
+    font-size: 10px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: var(--text-dim);
+    border-bottom: 1px solid var(--border);
+    font-weight: 400;
+  }
+
+  .threat-table td {
+    padding: 13px 16px;
+    border-bottom: 1px solid rgba(30,45,61,0.5);
+    vertical-align: middle;
+  }
+
+  .threat-table tr:hover td { background: rgba(255,255,255,0.02); }
+
+  .threat-table tr {
+    opacity: 0;
+    animation: fadeUp 0.3s forwards;
+  }
+
+  .badge {
+    font-family: var(--sans);
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 1.5px;
+    padding: 3px 10px;
+    border-radius: 2px;
+  }
+
+  .badge.CRITICAL { background: rgba(255,59,92,0.15);  color: var(--red);    border: 1px solid rgba(255,59,92,0.4); }
+  .badge.HIGH     { background: rgba(255,149,0,0.15);  color: var(--orange); border: 1px solid rgba(255,149,0,0.4); }
+  .badge.MEDIUM   { background: rgba(255,214,10,0.1);  color: var(--yellow); border: 1px solid rgba(255,214,10,0.3); }
+  .badge.LOW      { background: rgba(0,180,216,0.1);   color: var(--blue);   border: 1px solid rgba(0,180,216,0.3); }
+
+  .ip-addr { color: var(--green); font-size: 14px; }
+
+  .velocity-bar {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .bar-track {
+    flex: 1;
+    height: 4px;
+    background: var(--border);
+    border-radius: 2px;
+    max-width: 100px;
+    overflow: hidden;
+  }
+
+  .bar-fill {
+    height: 100%;
+    border-radius: 2px;
+    background: var(--green);
+    transition: width 1s ease;
+  }
+
+  .bar-fill.high   { background: var(--orange); }
+  .bar-fill.danger { background: var(--red); }
+
+  .users-tried {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+  }
+
+  .user-tag {
+    background: rgba(255,255,255,0.04);
+    border: 1px solid var(--border);
+    padding: 2px 8px;
+    font-size: 11px;
+    color: var(--text-dim);
+    border-radius: 2px;
+  }
+
+  .success-pill {
+    color: var(--red);
+    font-size: 11px;
+    font-weight: bold;
+  }
+
+  /* ── Log Panel ── */
+  .bottom-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+  }
+
+  .panel {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    padding: 20px;
+    opacity: 0;
+    animation: fadeUp 0.5s 0.3s forwards;
+  }
+
+  .panel-title {
+    font-size: 10px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: var(--text-dim);
+    margin-bottom: 16px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .mitre-tag {
+    display: inline-block;
+    font-size: 12px;
+    padding: 6px 12px;
+    margin: 4px;
+    border: 1px solid var(--border);
+    color: var(--blue);
+    background: rgba(0,180,216,0.05);
+  }
+
+  .scan-info { font-size: 12px; line-height: 2; }
+  .scan-info .key   { color: var(--text-dim); }
+  .scan-info .val   { color: var(--green); }
+
+  @keyframes fadeUp {
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  .empty-state {
+    text-align: center;
+    padding: 40px;
+    color: var(--text-dim);
+    font-size: 13px;
+  }
+
+  #last-updated { font-size: 11px; color: var(--text-dim); }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">SSH<span>/</span>Threat<span>/</span>Monitor</div>
+  <div class="header-right">
+    <span><span class="live-dot"></span>LIVE</span>
+    <span id="last-updated">—</span>
+    <button class="refresh-btn" onclick="loadData()">⟳ REFRESH</button>
+  </div>
+</header>
+
+<main>
+  <div class="stats-grid" id="stats-grid">
+    <div class="stat-card red"    style="animation-delay:0.0s"><div class="stat-label">Failed Logins</div><div class="stat-value" id="s-failed">—</div></div>
+    <div class="stat-card orange" style="animation-delay:0.1s"><div class="stat-label">Invalid Users</div><div class="stat-value" id="s-invalid">—</div></div>
+    <div class="stat-card green"  style="animation-delay:0.2s"><div class="stat-label">Successful Logins</div><div class="stat-value" id="s-success">—</div></div>
+    <div class="stat-card blue"   style="animation-delay:0.3s"><div class="stat-label">Unique IPs</div><div class="stat-value" id="s-ips">—</div></div>
+    <div class="stat-card yellow" style="animation-delay:0.4s"><div class="stat-label">Lines Parsed</div><div class="stat-value" id="s-lines">—</div></div>
+  </div>
+
+  <div class="section-title">Detected Threats</div>
+  <table class="threat-table">
+    <thead>
+      <tr>
+        <th>Level</th>
+        <th>IP Address</th>
+        <th>Attempts</th>
+        <th>Velocity</th>
+        <th>Usernames Tried</th>
+        <th>Window</th>
+        <th>Status</th>
+      </tr>
+    </thead>
+    <tbody id="threat-tbody">
+      <tr><td colspan="7" class="empty-state">Loading threats...</td></tr>
+    </tbody>
+  </table>
+
+  <div class="bottom-grid">
+    <div class="panel">
+      <div class="panel-title">Scan Info</div>
+      <div class="scan-info" id="scan-info">—</div>
+    </div>
+    <div class="panel">
+      <div class="panel-title">MITRE ATT&amp;CK Coverage</div>
+      <span class="mitre-tag">T1110 — Brute Force</span>
+      <span class="mitre-tag">T1110.001 — Password Guessing</span>
+      <span class="mitre-tag">T1110.003 — Password Spraying</span>
+      <span class="mitre-tag">T1078 — Valid Accounts</span>
+      <span class="mitre-tag">TA0006 — Credential Access</span>
+    </div>
+  </div>
+</main>
+
+<script>
+async function loadData() {
+  try {
+    const res = await fetch('/api/report');
+    const data = await res.json();
+
+    if (data.error) { alert(data.error); return; }
+
+    // Stats
+    document.getElementById('s-failed').textContent  = data.summary.failed_logins   ?? 0;
+    document.getElementById('s-invalid').textContent = data.summary.invalid_users   ?? 0;
+    document.getElementById('s-success').textContent = data.summary.successful_logins ?? 0;
+    document.getElementById('s-ips').textContent     = data.summary.unique_ips      ?? 0;
+    document.getElementById('s-lines').textContent   = data.summary.total_lines     ?? 0;
+
+    // Scan info
+    const t = new Date(data.scan_time);
+    document.getElementById('scan-info').innerHTML = `
+      <div><span class="key">Scan time &nbsp;&nbsp;&nbsp;: </span><span class="val">${t.toLocaleString()}</span></div>
+      <div><span class="key">Total threats : </span><span class="val">${data.threats?.length ?? 0}</span></div>
+      <div><span class="key">Log source &nbsp;&nbsp;: </span><span class="val">auth.log</span></div>
+    `;
+
+    // Last updated
+    document.getElementById('last-updated').textContent = 'Updated ' + t.toLocaleTimeString();
+
+    // Threats table
+    const tbody = document.getElementById('threat-tbody');
+    if (!data.threats || data.threats.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="7" class="empty-state">No threats detected above threshold.</td></tr>';
+      return;
+    }
+
+    tbody.innerHTML = data.threats.map((t, i) => {
+      const maxVel = 70;
+      const pct    = Math.min((t.velocity_per_min / maxVel) * 100, 100);
+      const barCls = pct > 60 ? 'danger' : pct > 30 ? 'high' : '';
+
+      const first = t.first_seen ? new Date(t.first_seen).toLocaleTimeString() : '—';
+      const last  = t.last_seen  ? new Date(t.last_seen).toLocaleTimeString()  : '—';
+
+      const userTags = (t.usernames_tried || [])
+        .map(u => `<span class="user-tag">${u}</span>`).join('');
+
+      const status = t.succeeded
+        ? `<span class="success-pill">⚠ LOGGED IN as ${t.success_user}</span>`
+        : `<span style="color:var(--text-dim)">—</span>`;
+
+      return `
+        <tr style="animation-delay:${0.05 * i}s">
+          <td><span class="badge ${t.threat_level}">${t.threat_level}</span></td>
+          <td><span class="ip-addr">${t.ip}</span></td>
+          <td>${t.total_attempts} <span style="color:var(--text-dim);font-size:11px">(${t.failed_passwords}f / ${t.invalid_users}i)</span></td>
+          <td>
+            <div class="velocity-bar">
+              <span style="min-width:42px">${t.velocity_per_min}/min</span>
+              <div class="bar-track"><div class="bar-fill ${barCls}" style="width:${pct}%"></div></div>
+            </div>
+          </td>
+          <td><div class="users-tried">${userTags}</div></td>
+          <td style="font-size:11px;color:var(--text-dim)">${first}<br>${last}</td>
+          <td>${status}</td>
+        </tr>`;
+    }).join('');
+
+  } catch(e) {
+    console.error(e);
+  }
+}
+
+// Load on start, then auto-refresh every 30 seconds
+loadData();
+setInterval(loadData, 30000);
+</script>
+</body>
+</html>
