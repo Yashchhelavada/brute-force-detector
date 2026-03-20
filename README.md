@@ -124,7 +124,19 @@ The web dashboard shows:
 ```
 
 ---
+## Integration with Honeypot Project
 
+Cowrie logs are stored in JSON at `/home/cowrie/var/log/cowrie/cowrie.json`.
+Convert them using:
+
+```bash
+cat cowrie.json | python3 -c "
+import sys, json
+for line in sys.stdin:
+    e = json.loads(line)
+    if e.get('eventid') == 'cowrie.login.failed':
+        print(f'... Failed password for {e[\"username\"]} from {e[\"src_ip\"]} ...')
+" > converted_auth.log
 
 
 python detector.py converted_auth.log --json cowrie_threats.json
